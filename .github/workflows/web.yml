@@ -1,0 +1,98 @@
+name: Build and Deploy Web
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build web export
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.7.2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Godot export templates
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/share/godot/export_templates"
+          if [ "$HOME" != "/root" ]; then
+            cp -a /root/.local/share/godot/export_templates/4.7.2.stable "$HOME/.local/share/godot/export_templates/"
+          fi
+          mkdir -p "$HOME/.config"
+          if [ "$HOME" != "/root" ] && [ -d /root/.config/godot ]; then
+            cp -a /root/.config/godot "$HOME/.config/"
+          fi
+
+      - name: Import project
+        run: godot --headless --path . --import
+
+      - name: Smoke check
+        run: |
+          set -euo pipefail
+          out="$(mktemp)"
+          godot --headless --path . --quit-after 120 res://volumetric_minesweeper.tscn 2>&1 | tee "$out"
+          ! grep -qE "SCRIPT ERROR|Parse Error" "$out"
+
+      - name: Run rules/topology suite
+        run: |
+          set -euo pipefail
+          out="$(mktemp)"
+          godot --headless --path . --fixed-fps 60 --quit-after 9000 --script res://tests/run_tests.gd 2>&1 | tee "$out"
+          ! grep -qE "SCRIPT ERROR|Parse Error" "$out"
+          grep -q "^TEST RESULT: PASS" "$out"
+
+      - name: Export Web
+        run: |
+          set -euo pipefail
+          mkdir -p build/web
+          godot --headless --path . --export-release "Web" build/web/index.html
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: build/web
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-build
+          path: build/web
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

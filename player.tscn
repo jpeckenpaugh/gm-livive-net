@@ -1,0 +1,63 @@
+[gd_scene load_steps=6 format=3 uid="uid://b8x3g7mquyw2q"]
+
+[ext_resource type="Script" path="res://player.gd" id="1_player"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1"]
+radius = 0.4
+height = 1.8
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_1"]
+radius = 0.4
+height = 1.8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_player"]
+albedo_color = Color(1, 0.45, 0.15, 1)
+metallic = 0.2
+roughness = 0.4
+
+[sub_resource type="BoxMesh" id="BoxMesh_visor"]
+size = Vector3(0.5, 0.2, 0.3)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_visor"]
+albedo_color = Color(0.1, 0.9, 1.0, 1)
+emission_enabled = true
+emission = Color(0.1, 0.9, 1.0, 1)
+emission_energy_multiplier = 2.0
+
+[node name="Player" type="CharacterBody3D"]
+script = ExtResource("1_player")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_1")
+
+[node name="Visuals" type="Node3D" parent="."]
+
+[node name="BodyMesh" type="MeshInstance3D" parent="Visuals"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+mesh = SubResource("CapsuleMesh_1")
+surface_material_override/0 = SubResource("StandardMaterial3D_player")
+
+[node name="Visor" type="MeshInstance3D" parent="Visuals"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.35, -0.3)
+mesh = SubResource("BoxMesh_visor")
+surface_material_override/0 = SubResource("StandardMaterial3D_visor")
+
+[node name="CamYaw" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+
+[node name="CamPitch" type="Node3D" parent="CamYaw"]
+
+[node name="SpringArm3D" type="SpringArm3D" parent="CamYaw/CamPitch"]
+collision_mask = 0
+spring_length = 6.0
+margin = 0.3
+
+[node name="Camera3D" type="Camera3D" parent="CamYaw/CamPitch/SpringArm3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 6)
+current = false
+fov = 75.0
+
+[node name="GroundRay" type="RayCast3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+target_position = Vector3(0, -1.8, 0)
